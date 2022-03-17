@@ -1,12 +1,8 @@
 from contextlib import contextmanager
 
+import pytest
 from flask import appcontext_pushed, g
+from oso import Oso
+from sqlalchemy_oso import register_models
 
-
-@contextmanager
-def user_set(app, user):
-    def handler(sender, **kwargs):
-        g.user = user
-    with appcontext_pushed.connected_to(handler, app):
-        yield
 

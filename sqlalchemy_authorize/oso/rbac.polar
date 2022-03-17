@@ -1,15 +1,17 @@
 # -- Defining the roles. ------------------------------------------------------
-# For this example, we define "self", "owner", and "admin".
-# You'll want to add more.
+# For this example, we define "public", "self", "owner", and "admin".
+# You'll probably want to add more.
+
+has_role(_user, "public", _resource);
 
 has_role(user: User, "self", other: User) if
     user.id == other.id;
 
-has_role(user: User, "owner": resource) if
+has_role(user: User, "owner", resource) if
     user.id == resource.owner_id;
 
-has_role(user: User, "admin", _resource: Resource) if
-    user.is_admin;
+has_role(user: User, "admin", _resource) if
+    user.is_admin != nil and user.is_admin;
 
 
 # -- Field-level access -------------------------------------------------------
@@ -20,8 +22,8 @@ has_role(user: User, "admin", _resource: Resource) if
 allow_field(user: User, action, resource, field) if
     role in resource.roles and
     has_role(user, role, resource) and
-    (field_ in resource.authorized_fields(role, action) and
-    (field_ = "*" or field_ = field));
+    (f in resource.authorized_fields_for(role, action) and
+    (f = "*" or f = field));
 
 
 # -- Row-level access ---------------------------------------------------------
@@ -33,7 +35,7 @@ allow(user: User, action: String, resource) if
     action != "delete" and
     role in resource.roles and
     has_role(user, role, resource) and
-    len(resource.authorized_fields(role, action)) > 0;
+    not falsy(resource.authorized_fields_for(role, action));
 
 # Accept for "delete". Here, we need delete permissions on all fields to get
 # row-level delete access.
@@ -41,8 +43,12 @@ allow(user: User, action: String, resource) if
 allow(user: User, "delete", resource) if
     role in resource.roles and
     has_role(user, role, resource)and
-    "*" in resource.authorized_fields(role, "delete");
+    "*" in resource.authorized_fields_for(role, "delete");
 
 
 
+# == Helpers ==================================================================
+
+
+falsy(x) if x in [nil, false, []];
 

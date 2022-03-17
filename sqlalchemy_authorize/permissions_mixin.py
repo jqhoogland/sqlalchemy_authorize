@@ -1,8 +1,6 @@
 """Main module."""
 import sys
-from abc import abstractmethod
 from contextlib import contextmanager
-from datetime import datetime
 from typing import List, Union, Optional
 
 from sqlalchemy_authorize.constants import CRUD
@@ -59,7 +57,7 @@ class BasePermissionsMixin:
 
     Using :class:`User`.
 
-    >>> user = User(id="123", protected=False).protect()
+    >>> user = User(id="123")
     >>> sorted(user.roles)
     ['admin', 'public', 'self']
     >>> sorted(user.actions)
@@ -74,18 +72,20 @@ class BasePermissionsMixin:
     DEFAULT_ACTIONS = [e.value for e in CRUD] + ["call"]
     PUBLIC_ROLE = "public"  # The name of the "public" / fallback role.
 
-    def __init__(self, *args, protected=True, **kwargs):
+    def __init__(self, *args, protected=True, check_create=False, **kwargs):
         """Checks create permissions on each of the kwargs
-        before initializing the model if ``protected``.
+        before initializing the model if ``check_create``.
 
-        >>> User(id="123") # the current user doesn't have create permissions
+        >>> User(id="123", check_create=True) # the current user doesn't have create permissions
         Traceback (most recent call last):
         PermissionError: ...
-        >>> User(id="123", protected=False).protect()
+        >>> User(id="123", check_create=False)
         <User 123>
 
-        """
+        The reason we can't check create permissions by default is that
+        it disrupts the relational part of the ORM.
 
+        """
         # ``self.__setattr__`` requires ``_protected`` to resolve.
         # This gets around that circular dependency.
         super().__setattr__("_protected", False)
@@ -95,7 +95,7 @@ class BasePermissionsMixin:
         self._allowed_fields = {action: [] for action in self.actions}
         self._forbidden_fields = {action: [] for action in self.actions}
 
-        if protected:
+        if check_create:
             with self.protected():
                 for key in kwargs.keys():
                     self.authorize("create", key)
@@ -505,7 +505,7 @@ class BasePermissionsMixin:
         """Allow ``action`` (s) on ``field`` (s) during the
         current context.
 
-        >>> user = User(id="123", protected=False).protect()
+        >>> user = User(id="123")
         >>> user.id = "456"
         Traceback (most recent call last):
         PermissionError: ...
@@ -547,7 +547,7 @@ class BasePermissionsMixin:
         """Temporarily deny ``action``(s) on ``field``(s)
         (optionally restricted to ``field``).
 
-        >>> user = User(id="123", protected=False).protect()
+        >>> user = User(id="123")
         >>> user.id
         '123'
         >>> with user.denied(CRUD.READ, "id"):
