@@ -120,7 +120,7 @@ Timeline
 - [ ] Flesh out the oso example.
 - [ ] Implement a non-oso role-based extension.
 - [ ] Check row-level create/delete permissions. (This is currently only on the field level).
-
+- [ ] Check "call" permissions (i.e., for methods)
 
 Credits
 -------

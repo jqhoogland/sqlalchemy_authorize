@@ -34,7 +34,6 @@ class User(BaseModel):
             "read",
             "delete"
         ],
-        friend=[("read", ["fullname"])],  # (in addition to public "read")
         admin="*"  # i.e., all actions on all fields
     )
 
@@ -42,6 +41,7 @@ class User(BaseModel):
     username = sa.Column(sa.String(128), nullable=False)
     fullname = sa.Column(sa.String(128), nullable=False)
     ssn = sa.Column(sa.String(10), nullable=True)
+    is_admin = sa.Column(sa.Boolean, default=False)
 
     def __repr__(self):
         return f"<User {self.id}>"

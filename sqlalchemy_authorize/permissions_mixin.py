@@ -57,11 +57,11 @@ class BasePermissionsMixin:
     - "call" concerns methods and functions.
        TODO: This will still currently fail if the method requires additional permissions.
 
-    Using :class:`User` (not the example above).
+    Using :class:`User`.
 
-    >>> user = User(id="123")
+    >>> user = User(id="123", protected=False).protect()
     >>> sorted(user.roles)
-    ['admin', 'friend', 'public', 'self']
+    ['admin', 'public', 'self']
     >>> sorted(user.actions)
     ['call', 'create', 'delete', 'read', 'update']
     >>> user._protected
@@ -75,6 +75,17 @@ class BasePermissionsMixin:
     PUBLIC_ROLE = "public"  # The name of the "public" / fallback role.
 
     def __init__(self, *args, protected=True, **kwargs):
+        """Checks create permissions on each of the kwargs
+        before initializing the model if ``protected``.
+
+        >>> User(id="123") # the current user doesn't have create permissions
+        Traceback (most recent call last):
+        PermissionError: ...
+        >>> User(id="123", protected=False).protect()
+        <User 123>
+
+        """
+
         # ``self.__setattr__`` requires ``_protected`` to resolve.
         # This gets around that circular dependency.
         super().__setattr__("_protected", False)
@@ -83,6 +94,11 @@ class BasePermissionsMixin:
         # For use with :meth:`Wrapper.allow` and :meth:`Wrapper.deny`
         self._allowed_fields = {action: [] for action in self.actions}
         self._forbidden_fields = {action: [] for action in self.actions}
+
+        if protected:
+            with self.protected():
+                for key in kwargs.keys():
+                    self.authorize("create", key)
 
         # This requires this mixin to be included before SQLAlchemy's declarative base.
         # TODO: Filter kwargs for those with ``create`` permissions.
@@ -381,9 +397,9 @@ class BasePermissionsMixin:
 
         When the context exits, returns to the prior ``_protected``.
 
-        >>> user = User(id="123")
-        >>> user.expose()
-        <User 123>
+        >>> user = User(id="123", protected=False)
+        >>> user.id
+        '123'
         >>> user.id = "456"
         >>> user.id
         '456'
@@ -489,7 +505,7 @@ class BasePermissionsMixin:
         """Allow ``action`` (s) on ``field`` (s) during the
         current context.
 
-        >>> user = User(id="123")
+        >>> user = User(id="123", protected=False).protect()
         >>> user.id = "456"
         Traceback (most recent call last):
         PermissionError: ...
@@ -531,7 +547,7 @@ class BasePermissionsMixin:
         """Temporarily deny ``action``(s) on ``field``(s)
         (optionally restricted to ``field``).
 
-        >>> user = User(id="123")
+        >>> user = User(id="123", protected=False).protect()
         >>> user.id
         '123'
         >>> with user.denied(CRUD.READ, "id"):
@@ -563,7 +579,7 @@ class BasePermissionsMixin:
         :returns: Permission Error (does not raise this error!)
         """
 
-        return PermissionError
+        return PermissionError(f"Current user is not allowed to perform '{action}'.")
 
     def authorize_field(self, action: str, key: str):
         """This is where you actually implement the check.
@@ -615,7 +631,6 @@ class BasePermissionsMixin:
         elif key in self.authorizable_fields and key not in self._allowed_fields.get(
             action, []
         ):
-
             # Required to avoid sending oso into a self-referential death spiral.
             with self.exposed():
                 self.authorize_field(action, key)

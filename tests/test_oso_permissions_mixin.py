@@ -2,6 +2,7 @@ from contextlib import contextmanager
 
 from flask import appcontext_pushed, g
 
+
 @contextmanager
 def user_set(app, user):
     def handler(sender, **kwargs):
