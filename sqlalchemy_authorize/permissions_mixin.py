@@ -1,5 +1,3 @@
-"""Main module."""
-import sys
 from contextlib import contextmanager
 from typing import List, Union, Optional
 
@@ -12,7 +10,7 @@ class BasePermissionsMixin:
 
     E.g.::
 
-        class User(BasePermissionsMixin, db.Model):
+        class BaseUser(BasePermissionsMixin, db.Model):
             __permissions__ = BasePermissionsMixin.load_permissions(
                 # Public permissions
                 read=["id", "username"],
@@ -43,25 +41,24 @@ class BasePermissionsMixin:
     with libraries like :mod:`graphene_sqlalchemy`.
 
     Field-level permissions imply row-level permissions. If you are
-    allowed to update ``User.username``, then you are assumed to
-    have the update permission on ``User``.
+    allowed to update ``BaseUser.username``, then you are assumed to
+    have the update permission on ``BaseUser``.
 
-    This assumes CRUD + "call" actions by default ("create", "read", "update",
+    This assumes CRUD actions by default ("create", "read", "update",
     "delete"), where:
 
-    - "read" fields: columns, composites, properties, & relationships.
+    - "read" fields: columns, composites, properties, relationships, *and methods/functions*.
     - "create" & "update" fields: columns or settable properties.
     - "delete" usually isn't concerned with individual fields.
-    - "call" concerns methods and functions.
        TODO: This will still currently fail if the method requires additional permissions.
 
-    Using :class:`User`.
+    Using :class:`BaseUser`.
 
-    >>> user = User(id="123")
+    >>> user = BaseUser(id="123")
     >>> sorted(user.roles)
     ['admin', 'public', 'self']
     >>> sorted(user.actions)
-    ['call', 'create', 'delete', 'read', 'update']
+    ['create', 'delete', 'read', 'update']
     >>> user._protected
     True
 
@@ -69,18 +66,18 @@ class BasePermissionsMixin:
     """
     __permissions__ = None
 
-    DEFAULT_ACTIONS = [e.value for e in CRUD] + ["call"]
+    DEFAULT_ACTIONS = [e.value for e in CRUD]
     PUBLIC_ROLE = "public"  # The name of the "public" / fallback role.
 
     def __init__(self, *args, protected=True, check_create=False, **kwargs):
         """Checks create permissions on each of the kwargs
         before initializing the model if ``check_create``.
 
-        >>> User(id="123", check_create=True) # the current user doesn't have create permissions
+        >>> BaseUser(id="123", check_create=True) # the current user doesn't have create permissions
         Traceback (most recent call last):
         PermissionError: ...
-        >>> User(id="123", check_create=False)
-        <User 123>
+        >>> BaseUser(id="123", check_create=False)
+        <BaseUser 123>
 
         The reason we can't check create permissions by default is that
         it disrupts the relational part of the ORM.
@@ -132,8 +129,7 @@ class BasePermissionsMixin:
         ...     friend=[("read", ["fullname"])],
         ...     admin="*"
         ... ))
-        {'admin': {'call': ['*'],
-                   'create': ['*'],
+        {'admin': {'create': ['*'],
                    'custom_action': ['*'],
                    'delete': ['*'],
                    'read': ['*'],
@@ -150,7 +146,7 @@ class BasePermissionsMixin:
         :param actions: a list of actions to include (needed to
             expand wildcards like ``admin="*"``.)
 
-            Defaults to CRUD + "call" + any custom actions found in
+            Defaults to CRUD + any custom actions found in
             the role fields.
 
         :param read: "public" read permissions. Defaults to None,
@@ -165,9 +161,6 @@ class BasePermissionsMixin:
             not be used.
 
         :param delete: "public" delete permissions. Should typically
-            not be used.
-
-        :param call: "public" call permissions. Should typically
             not be used.
 
         :param kwargs: pairs of roles and permissions. E.g.::
@@ -397,7 +390,7 @@ class BasePermissionsMixin:
 
         When the context exits, returns to the prior ``_protected``.
 
-        >>> user = User(id="123", protected=False)
+        >>> user = BaseUser(id="123", protected=False)
         >>> user.id
         '123'
         >>> user.id = "456"
@@ -505,7 +498,7 @@ class BasePermissionsMixin:
         """Allow ``action`` (s) on ``field`` (s) during the
         current context.
 
-        >>> user = User(id="123")
+        >>> user = BaseUser(id="123")
         >>> user.id = "456"
         Traceback (most recent call last):
         PermissionError: ...
@@ -547,7 +540,7 @@ class BasePermissionsMixin:
         """Temporarily deny ``action``(s) on ``field``(s)
         (optionally restricted to ``field``).
 
-        >>> user = User(id="123")
+        >>> user = BaseUser(id="123")
         >>> user.id
         '123'
         >>> with user.denied(CRUD.READ, "id"):
@@ -594,7 +587,7 @@ class BasePermissionsMixin:
         / attribute-based access control here (or use a solution
         like :mod:`oso`).
 
-        :param action: One of CRUD + "call" or a custom action.
+        :param action: One of CRUD or a custom action.
         :param key: The attribute/field to authorize.
         :returns: ``None`` if the action is allowed.
         :raises: :exec:`PermissionError` (or some custom error like

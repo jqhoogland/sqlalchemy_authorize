@@ -16,7 +16,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Session
 from sqlalchemy_oso import register_models
 
-from sqlalchemy_authorize import OsoPermissionsMixin
+from sqlalchemy_authorize import OsoPermissionsMixin, BasePermissionsMixin
 
 Base = declarative_base()
 engine = create_engine('sqlite:///:memory:', echo=False)
@@ -26,12 +26,37 @@ sess = Session(engine)
 # -- Models -------------------------------------------------------------------
 
 
-class BaseModel(OsoPermissionsMixin, Base):
-    __abstract__ = True
-    pass
+class BaseUser(BasePermissionsMixin, Base):
+    __tablename__ = 'baseuser'
+    __repr_attrs__ = ['name']
+    __permissions__ = OsoPermissionsMixin.load_permissions(
+        # Public permissions
+        read=["id", "username"],
+
+        # Role-based permissions
+        self=[
+            # The user can provide ``username`` and ``fullname``
+            # to ``__init__`` (as keyword args) and to ``__setattr__``.
+            (["create", "update"], ["username", "fullname"]),
+
+            # The user can read/delete the entire model.
+            "read",
+            "delete"
+        ],
+        admin="*"  # i.e., all actions on all fields
+    )
+
+    id = sa.Column(sa.String(128), primary_key=True)
+    username = sa.Column(sa.String(128), nullable=False)
+    fullname = sa.Column(sa.String(128), nullable=False)
+    ssn = sa.Column(sa.String(10), nullable=True)
+    is_admin = sa.Column(sa.Boolean, default=False)
+
+    def __repr__(self):
+        return f"<BaseUser {self.id}>"
 
 
-class User(BaseModel):
+class User(OsoPermissionsMixin, Base):
     __tablename__ = 'user'
     __repr_attrs__ = ['name']
     __permissions__ = OsoPermissionsMixin.load_permissions(
@@ -68,11 +93,11 @@ class User(BaseModel):
 def session():
     sess.rollback()
 
-    BaseModel.__class__._session = None
+    Base.__class__._session = None
     Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
 
-    BaseModel.__class__._session = sess
+    Base.__class__._session = sess
     return sess
 
 
@@ -111,6 +136,11 @@ def user_set(app, user):
 @pytest.fixture(scope="session", autouse=True)
 def add_app(doctest_namespace):
     doctest_namespace["app"] = app
+
+
+@pytest.fixture(scope="session", autouse=True)
+def add_BaseUser(doctest_namespace):
+    doctest_namespace["BaseUser"] = BaseUser
 
 
 @pytest.fixture(scope="session", autouse=True)

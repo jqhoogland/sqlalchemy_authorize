@@ -1,4 +1,3 @@
-import sys
 from dataclasses import dataclass
 from contextlib import contextmanager
 
@@ -16,7 +15,7 @@ class OsoPermissionsMixin(BasePermissionsMixin):
     >>> john_doe = User(username="john_doe", check_create=True)
     Traceback (most recent call last):
     oso.exceptions.ForbiddenError: ...
-    >>> with user_set(app, admin):
+    >>> with user_set(app, admin):  # A context to set `flask.g.user`
     ...     john_doe = User(username="john_doe", check_create=True)
     ...     john_doe.id = "2"
     >>> john_doe.username, john_doe.id

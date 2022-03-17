@@ -65,7 +65,7 @@ that means the ``OsoPermissionsMixin`` (put it before ``db.Model`` / ``Base``).
 
 Let's look at an easy role-based example.
 
-In your ``models.py``:: python
+In your ``models.py``::
 
     class User(OsoPermissionsMixin, db.Model):
         __tablename__ = 'user'
@@ -91,7 +91,7 @@ In your ``models.py``:: python
         ssn = sa.Column(sa.String(10), nullable=True)
         is_admin = sa.Column(sa.Boolean, default=False)
 
-Then, in your `polar policy`_::
+Then, in your `polar policy`_, write something like::
 
     has_role(user: User, "self": other: User) if user.id == other.id;
     has_role(user: User, "admin": _resource) if user.is_admin;
@@ -103,11 +103,36 @@ Then, in your `polar policy`_::
         (f in resource.authorized_fields(role, action) and
         (f = "*" or f = field)); # to match a wildcard
 
-    user = User(id="123", )
+    # ...
 
+For the full example, check out :ref:`rbac.polar`.
 
+Now, we can start having fun::
 
+    admin = User(id="1", username="root", is_admin=True)
 
+    # This won't work because the current user is anonymous
+    # and has no create permissions on `User.username`
+    john_doe = User(username="john_doe", check_create=True)  # oso.exceptions.ForbiddenError
+
+    with user_set(app, admin): # A helper context that sets `flask.g.user`
+        john_doe = User(username="john_doe", check_create=True)
+        john_doe.id = "2"
+
+    john_doe.username, john_doe.id  # ('john_doe', '2')
+
+    with user_set(app, john_doe):
+        john_doe.username = "doe_john"
+
+        # This won't work because John only has update permissions on `username` and `fullname`
+        john_doe.id = "3"   # oso.exceptions.ForbiddenError
+
+    john_doe.username, john_doe.id # ('doe_john', '2')
+
+For more details and options, check out :class:`sqlalchemy_authorize.permissions_mixin.BasePermissionsMixin` and :class:`sqlalchemy_authorize.oso.oso_permissions_mixin.OsoPermissionsMixin`.
+
+Misc
+----
 
 * Free software: MIT license
 * Documentation: https://sqlalchemy-authorize.readthedocs.io.
@@ -120,7 +145,6 @@ Timeline
 - [ ] Flesh out the oso example.
 - [ ] Implement a non-oso role-based extension.
 - [ ] Check row-level create/delete permissions. (This is currently only on the field level).
-- [ ] Check "call" permissions (i.e., for methods)
 
 Credits
 -------

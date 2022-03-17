@@ -1,3 +1,5 @@
+# .. rbac.polar:
+
 # -- Defining the roles. ------------------------------------------------------
 # For this example, we define "public", "self", "owner", and "admin".
 # You'll probably want to add more.
