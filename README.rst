@@ -19,6 +19,8 @@ SQL Alchemy Authorize
 
 An unopinionated extension to enforce access control.
 
+For Documentation: https://sqlalchemy-authorize.readthedocs.io.
+
 ``sqlalchemy_authorize`` is a sqlalchemy extension designed to complement `sqlalchemy-oso`_.
 Where `sqlalchemy-oso`_ provides authorization at the *row level* in the *data-access layer*
 (it modifies your queries so you pull only authorized entries from your database),
