@@ -4,7 +4,7 @@ flake8==4.0.1
 watchdog==2.1.6
 wheel==0.37.1
 flask==2.0.3
-coverage==4.5.4
+coverage==6.3.2
 Sphinx==1.8.5
 twine==1.14.0
 Click==7.1.2
