@@ -257,6 +257,7 @@ class BasePermissionsMixin:
                 "_sa_instance_state",
                 "_sa_class_manager",
                 "_sa_registry",
+                "_decl_class_registry",
                 "permissions",
                 "metadata",
                 "registry"
@@ -534,7 +535,6 @@ class BasePermissionsMixin:
         >>> user.id
         '123'
         >>> with user.denied(CRUD.READ, "id"):
-        ...     print(user.__dict__, user.authorizable_fields, user.always_allowed_fields)
         ...     user.id
         Traceback (most recent call last):
         PermissionError: ...
@@ -550,6 +550,20 @@ class BasePermissionsMixin:
         finally:
             for a in actions:
                 self._forbidden_fields[a] = []
+
+    # noinspection PyMethodMayBeStatic
+    def error(self, action: str):
+        """Returns an appropriate exception for the action.
+
+        This method expects to be overloaded. E.g.:
+        :class:`OsoPermissionsMixin` will raise a
+        :exec:`ForbiddenError` for create/update/delete, but a
+        :exec:`NotFoundError` for reads.
+
+        :returns: Permission Error (does not raise this error!)
+        """
+
+        return PermissionError
 
     def authorize_field(self, action: str, key: str):
         """This is where you actually implement the check.
@@ -574,7 +588,7 @@ class BasePermissionsMixin:
         if key in self.authorized_fields_for("public", action):
             return
 
-        raise PermissionError
+        raise self.error(action)
 
     def authorize(self, action, key):
         """Check whether the current user is allowed to perform
@@ -590,14 +604,14 @@ class BasePermissionsMixin:
 
         if key in self._forbidden_fields.get(action, []):
             if action == "read":
-                raise self.authorizer.not_found_error()
+                raise self.error("read")
 
             # If we're not even allowed to read the currently model,
             # throw a not found error, otherwise fallback to a
             # forbidden error.
             self.authorize("read", key)
+            raise self.error(action)
 
-            raise self.authorizer.forbidden_error()
         elif key in self.authorizable_fields and key not in self._allowed_fields.get(
             action, []
         ):
@@ -622,6 +636,10 @@ class BasePermissionsMixin:
             return False
         elif item == "__name__":
             return type(self).__name__
+        elif item in dir(self):
+            # TODO: Don't know why we sometimes end up here.
+            self.authorize(CRUD.READ, item)
+            return self.__dict__[item]
 
         raise AttributeError(f"'{self.__name__}' has no attribute '{item}'")
 
@@ -631,7 +649,7 @@ class BasePermissionsMixin:
         if item != "authorize":
             self.authorize(CRUD.READ, item)
 
-        return super().__getattribute__(item)
+        return object.__getattribute__(self, item)
 
     def __delattr__(self, item):
         """Checks with authorizer whether the current user
@@ -641,7 +659,7 @@ class BasePermissionsMixin:
         .. NOTE::
            This shouldn't be necessary very often, as we're typically
            more interested in protecting rows from being deleted than
-           pseudocolumns in the ORM object.
+           pseudocolumns in the ORM super().
         """
 
         self.authorize(CRUD.DELETE, item)
