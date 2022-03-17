@@ -20,7 +20,6 @@ class BaseModel(BasePermissionsMixin, Base):
 class User(BaseModel):
     __tablename__ = 'user'
     __repr_attrs__ = ['name']
-
     __permissions__ = BasePermissionsMixin.load_permissions(
         # Public permissions
         read=["id", "username"],

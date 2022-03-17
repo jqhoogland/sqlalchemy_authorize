@@ -5,5 +5,4 @@ __email__ = 'jesse@jessehoogland.com'
 __version__ = '0.1.0'
 
 from sqlalchemy_authorize.permissions_mixin import BasePermissionsMixin
-from sqlalchemy_authorize.oso_permissions_mixin import OsoPermissionsMixin
-from sqlalchemy_authorize.fa_permissions_mixin import FAPermissionsMixin
+from sqlalchemy_authorize.oso.oso_permissions_mixin import OsoPermissionsMixin
