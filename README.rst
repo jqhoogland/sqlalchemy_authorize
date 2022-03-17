@@ -1,8 +1,9 @@
+=====================
+SQL Alchemy Authorize
+=====================
+
 .. image:: https://img.shields.io/pypi/v/sqlalchemy_authorize.svg
         :target: https://pypi.python.org/pypi/sqlalchemy_authorize
-
-.. image:: https://img.shields.io/travis/jqhoogland/sqlalchemy_authorize.svg
-        :target: https://travis-ci.com/jqhoogland/sqlalchemy_authorize
 
 .. image:: https://readthedocs.org/projects/sqlalchemy-authorize/badge/?version=latest
         :target: https://sqlalchemy-authorize.readthedocs.io/en/latest/?version=latest
@@ -13,51 +14,10 @@
      :target: https://pyup.io/repos/github/jqhoogland/sqlalchemy_authorize/
      :alt: Updates
 
-=====================
-SQL Alchemy Authorize
-=====================
 
-An unopinionated extension to enforce access control.
+An unopinionated extension to enforce field-level access control.
 
 For Documentation: https://sqlalchemy-authorize.readthedocs.io.
-
-``sqlalchemy_authorize`` is a sqlalchemy extension designed to complement `sqlalchemy-oso`_.
-Where `sqlalchemy-oso`_ provides authorization at the *row level* in the *data-access layer*
-(it modifies your queries so you pull only authorized entries from your database),
-``sqlalchemy_authorize`` operates at the *field level* in the `ORM layer` (it checks
-whether users have permission before invoking ``__setattr__``, ``__getattribute__``,
-and ``__delattr__`` on your models).
-
-The use I originally had in mind was to separate authorization from graphql in
-`Graphene-SQLAlchemy`_: to make it easier to create graphql-queryable models without
-substantial authorization boilerplate in the resolvers (`which is not recommended`_).
-
-Really though, the use is broader than both `Graphene-SQLAlchemy`_ and `sqlalchemy-oso`_.
-Yes, there a bunch of other libraries for enforcing authorization with SQLAlchemy
-(and you should take a look at them before deciding to use this):
-
-* `Flask-Authorize <https://github.com/bprinty/Flask-Authorize>`_
-* `Flask Principal <https://pythonhosted.org/Flask-Principal/>`_
-* `Flask ACL <https://mikeboers.github.io/Flask-ACL/>`_
-* `Flask RBAC <https://flask-rbac.readthedocs.io/en/latest/>`_
-* `Flask Allows <https://github.com/justanr/flask-allows>`_
-* `Flask Bouncer <https://github.com/bouncer-app/flask-bouncer>`_
-
-Still, I decided to go ahead and throw together this library because:
-
-*    These options are Flask-specific and check permissions via decorators.
-     I wanted an option that isn't opt-in but opt-out, i.e., authorization by default.
-*    Many of these options assume you'll be authorizing at the *row level*, and (especially for the graphql use case) I needed field-level permissions.
-*    Many of the solutions are pretty opinionated about how you should be authorizing (and assume role-based access control).
-     I wanted a less opinionated "real-world" solution that lets me pick and choose from `role-, relation- and attribute-based access control`_.
-
-If any of that resonates with you, glad you're here.
-
-This is still a very early-stage library, and I discourage you from using it in production
-until I've tested in more thoroughly. Let me modify that: you're more than welcome to use it,
-since, if there is one thing you should be testing anyway, it's authorization.
-
-Go ahead, just be very careful.
 
 How to use
 ----------
@@ -107,7 +67,7 @@ Then, in your `polar policy`_, write something like::
 
     # ...
 
-For the full example, check out :ref:`rbac.polar`.
+For the full example, check out ``rbac.polar``.
 
 Now, we can start having fun::
 
@@ -131,7 +91,47 @@ Now, we can start having fun::
 
     john_doe.username, john_doe.id # ('doe_john', '2')
 
-For more details and options, check out :class:`sqlalchemy_authorize.permissions_mixin.BasePermissionsMixin` and :class:`sqlalchemy_authorize.oso.oso_permissions_mixin.OsoPermissionsMixin`.
+For more details and options, check out ``BasePermissionsMixin`` and ``OsoPermissionsMixin``.
+Rationale
+---------
+
+``sqlalchemy_authorize`` is a sqlalchemy extension designed to complement `sqlalchemy-oso`_.
+Where `sqlalchemy-oso`_ provides authorization at the *row level* in the *data-access layer*
+(it modifies your queries so you pull only authorized entries from your database),
+``sqlalchemy_authorize`` operates at the *field level* in the `ORM layer` (it checks
+whether users have permission before invoking ``__setattr__``, ``__getattribute__``,
+and ``__delattr__`` on your models).
+
+The use I originally had in mind was to separate authorization from graphql in
+`Graphene-SQLAlchemy`_: to make it easier to create graphql-queryable models without
+substantial authorization boilerplate in the resolvers (`which is not recommended`_).
+
+Really though, the use is broader than both `Graphene-SQLAlchemy`_ and `sqlalchemy-oso`_.
+Yes, there a bunch of other libraries for enforcing authorization with SQLAlchemy
+(and you should take a look at them before deciding to use this):
+
+* `Flask-Authorize <https://github.com/bprinty/Flask-Authorize>`_
+* `Flask Principal <https://pythonhosted.org/Flask-Principal/>`_
+* `Flask ACL <https://mikeboers.github.io/Flask-ACL/>`_
+* `Flask RBAC <https://flask-rbac.readthedocs.io/en/latest/>`_
+* `Flask Allows <https://github.com/justanr/flask-allows>`_
+* `Flask Bouncer <https://github.com/bouncer-app/flask-bouncer>`_
+
+Still, I decided to go ahead and throw together this library because:
+
+*    These options are Flask-specific and check permissions via decorators.
+     I wanted an option that isn't opt-in but opt-out, i.e., authorization by default.
+*    Many of these options assume you'll be authorizing at the *row level*, and (especially for the graphql use case) I needed field-level permissions.
+*    Many of the solutions are pretty opinionated about how you should be authorizing (and assume role-based access control).
+     I wanted a less opinionated "real-world" solution that lets me pick and choose from `role-, relation- and attribute-based access control`_.
+
+If any of that resonates with you, glad you're here.
+
+This is still a very early-stage library, and I discourage you from using it in production
+until I've tested in more thoroughly. Let me modify that: you're more than welcome to use it,
+since, if there is one thing you should be testing anyway, it's authorization.
+
+Go ahead, just be very careful.
 
 Misc
 ----
