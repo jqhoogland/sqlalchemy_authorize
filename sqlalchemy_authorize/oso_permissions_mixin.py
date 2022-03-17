@@ -6,7 +6,7 @@ class OsoPermissionsMixin(BasePermissionsMixin):
 
     .. _Oso: <https://www.osohq.com/>
     """
-    
+
     def get_oso(self):
         """Function to get the current oso instance.
 
@@ -27,4 +27,7 @@ class OsoPermissionsMixin(BasePermissionsMixin):
         return g.current_user
 
     def authorize_field(self, action, key):
-        return self.get_oso().authorize_fields(self.get_user(), action, self, key)
+        # To avoid self-referential death spiral if oso needs to read actor
+        # attributes.
+        with self.get_user().exposed():
+            self.get_oso().authorize_fields(self.get_user(), action, self, key)

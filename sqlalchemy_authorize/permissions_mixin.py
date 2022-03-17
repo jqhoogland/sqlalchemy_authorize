@@ -3,7 +3,6 @@ import sys
 from abc import abstractmethod
 from contextlib import contextmanager
 from datetime import datetime
-from enum import Enum
 from typing import List, Union, Optional
 
 from sqlalchemy_authorize.constants import CRUD
@@ -15,8 +14,8 @@ class BasePermissionsMixin:
 
     E.g.::
 
-        class User(PermissionsMixin, db.Model):
-            __permissions__ = PermissionsMixin.load_permissions(
+        class User(BasePermissionsMixin, db.Model):
+            __permissions__ = BasePermissionsMixin.load_permissions(
                 # Public permissions
                 read=["id", "username"],
 
@@ -30,13 +29,13 @@ class BasePermissionsMixin:
                     "read",
                     "delete"
                 ],
-                friend=[("read", ["fullname"])]  # (in addition to public "read")
+                friend=[("read", ["fullname"])],  # (in addition to public "read")
                 admin="*"  # i.e., all actions on all fields
             )
 
             id = db.Column(db.String(128), primary_key=True)
             username = db.Column(db.String(128), nullable=False)
-            full_name = db.Column(db.String(128), nullable=False)
+            fullname = db.Column(db.String(128), nullable=False)
             ssn = db.Column(db.String(10), nullable=True)
 
     Permission is denied by default (unlike other flask-authorization
@@ -62,7 +61,7 @@ class BasePermissionsMixin:
 
     >>> user = User(id="123")
     >>> sorted(user.roles)
-    ['admin', 'friend', 'self']
+    ['admin', 'friend', 'public', 'self']
     >>> sorted(user.actions)
     ['call', 'create', 'delete', 'read', 'update']
     >>> user._protected
@@ -79,6 +78,7 @@ class BasePermissionsMixin:
         # ``self.__setattr__`` requires ``_protected`` to resolve.
         # This gets around that circular dependency.
         super().__setattr__("_protected", False)
+        super().__setattr__("actions", self.__class__.actions)
 
         # For use with :meth:`Wrapper.allow` and :meth:`Wrapper.deny`
         self._allowed_fields = {action: [] for action in self.actions}
@@ -105,7 +105,7 @@ class BasePermissionsMixin:
         E.g.:
 
         >>> from pprint import pprint
-        >>> pprint(PermissionsMixin.load_permissions(
+        >>> pprint(BasePermissionsMixin.load_permissions(
         ...     read=["id", "username"],
         ...     self=[
         ...         (["create", "update"], ["username", "fullname"]),
@@ -244,6 +244,29 @@ class BasePermissionsMixin:
         """Setter for permissions dictionary proxy."""
         self.__permissions__ = self.load_permissions(**value)
 
+    @property
+    def exempted_fields(self):
+        return (
+            list(BasePermissionsMixin.__dict__.keys()) +
+            [
+                # Attributes that are set in ``__init__``.
+                "_protected",
+                "_allowed_fields",
+                "_forbidden_fields",
+                # SQL Alchemy generics.
+                "_sa_instance_state",
+                "_sa_class_manager",
+                "_sa_registry",
+                "permissions",
+                "metadata",
+                "registry"
+                # You'll have to use another solution (like ``oso``)
+                # if you want row-level authorization in queries.
+                "query",
+                "query_class",
+            ]
+        )
+
     # noinspection PyMethodParameters
     @classproperty
     def roles(cls) -> List[str]:
@@ -330,25 +353,8 @@ class BasePermissionsMixin:
         """
         return (
             not is_dunder(key)  # E.g.: "__dict__"
-            and key not in PermissionsMixin.__dict__
-            and key
-            not in [
-                # Attributes that are set in ``__init__``.
-                "_protected",
-                "_allowed_fields",
-                "_forbidden_fields",
-                # SQL Alchemy generics.
-                "_sa_instance_state",
-                "_sa_class_manager",
-                "_sa_registry",
-                "permissions",
-                "metadata",
-                "registry"
-                # You'll have to use a different solution (see: oso)
-                # if you want row-level authorization in queries.
-                "query",
-                "query_class",
-            ]
+            and key != "exempted_fields"
+            and key not in self.exempted_fields
             and self._protected
         )
 
@@ -374,7 +380,7 @@ class BasePermissionsMixin:
 
         When the context exits, returns to the prior ``_protected``.
 
-        >>> user = models.User(id="123")
+        >>> user = User(id="123")
         >>> user.expose()
         <User 123>
         >>> user.id = "456"
@@ -383,7 +389,7 @@ class BasePermissionsMixin:
         >>> with user.protected():
         ...     user.id = "123"
         Traceback (most recent call last):
-        oso.exceptions.ForbiddenError: ...
+        PermissionError: ...
         >>> user.id
         '456'
 
@@ -482,28 +488,26 @@ class BasePermissionsMixin:
         """Allow ``action`` (s) on ``field`` (s) during the
         current context.
 
-        >>> user = models.User(id="123")
+        >>> user = User(id="123")
         >>> user.id = "456"
         Traceback (most recent call last):
-        oso.exceptions.ForbiddenError: ...
+        PermissionError: ...
         >>> user.id
         '123'
-        >>> with user.allowed(CRUD.UPDATE):
+        >>> with user.allowed(CRUD.UPDATE.value):
         ...     user.id = "456"
         >>> user.id
         '456'
-        >>> with user.allowed(CRUD.UPDATE, "display_name"):
-        ...     print(user._protected, user.authorizable_fields, user.always_allowed_fields)
-        ...     user.display_name = "John Doe"
-        ...     user.email = "error@errors.com"
+        >>> with user.allowed(CRUD.UPDATE, "fullname"):
+        ...     user.fullname = "John Doe"
+        ...     user.username = "jdoe"
         Traceback (most recent call last):
-        oso.exceptions.ForbiddenError: ...
-        >>> with user.allowed(CRUD.READ, ["display_name", "email"]):
-        ...     print(user.display_name)
-        ...     print(user.email)
+        PermissionError: ...
+        >>> with user.allowed(CRUD.READ, ["fullname", "username"]):
+        ...     print(user.fullname)
+        ...     print(user.username)
         John Doe
         None
-
 
         :param action: The action(s) to allow.
         :param field: Which field(s) to allow ``action``(s) on,
@@ -523,16 +527,17 @@ class BasePermissionsMixin:
         action: Union[str, List[str]],
         field: Optional[Union[str, List[str]]] = None,
     ):
-        """Temporarily denied ``action``(s) on ``field``(s)
+        """Temporarily deny ``action``(s) on ``field``(s)
         (optionally restricted to ``field``).
 
-        >>> user = models.User(id="123")
+        >>> user = User(id="123")
         >>> user.id
         '123'
         >>> with user.denied(CRUD.READ, "id"):
+        ...     print(user.__dict__, user.authorizable_fields, user.always_allowed_fields)
         ...     user.id
         Traceback (most recent call last):
-        oso.exceptions.ForbiddenError: ...
+        PermissionError: ...
 
         :param action: The action(s) to deny.
         :param field: Which field(s) to deny ``action``(s) on,
@@ -546,15 +551,30 @@ class BasePermissionsMixin:
             for a in actions:
                 self._forbidden_fields[a] = []
 
-    @abstractmethod
     def authorize_field(self, action: str, key: str):
         """This is where you actually implement the check.
         For an example, see :class:`OsoPermissionsMixin`.
 
-        Should return ``None`` if the field is allowed,
-        or raise an error otherwise.
+        Usually, you can rely on this being called indirectly
+        (when setting/getting/deleting attributes).
+
+        This is meant as a placeholder method, not a working
+        example, that authorizes only public actions. In practice,
+        you'll want to implement your role-based / relation-based
+        / attribute-based access control here (or use a solution
+        like :mod:`oso`).
+
+        :param action: One of CRUD + "call" or a custom action.
+        :param key: The attribute/field to authorize.
+        :returns: ``None`` if the action is allowed.
+        :raises: :exec:`PermissionError` (or some custom error like
+            :exec:`oso.ForbiddenError`) if not allowed.
         """
-        raise NotImplementedError
+
+        if key in self.authorized_fields_for("public", action):
+            return
+
+        raise PermissionError
 
     def authorize(self, action, key):
         """Check whether the current user is allowed to perform
@@ -567,8 +587,6 @@ class BasePermissionsMixin:
         """
         if key == "requires_authorization" or not self.requires_authorization(key):
             return
-
-        print(key, action, self.authorizable_fields, self._protected, file=sys.stderr)
 
         if key in self._forbidden_fields.get(action, []):
             if action == "read":
@@ -583,13 +601,10 @@ class BasePermissionsMixin:
         elif key in self.authorizable_fields and key not in self._allowed_fields.get(
             action, []
         ):
-            # In case we pass an action as a string
-            if isinstance(action, Enum):
-                action = action.value
 
             # Required to avoid sending oso into a self-referential death spiral.
-            with self.expose():
-                self.authorize_field(action, self, key)
+            with self.exposed():
+                self.authorize_field(action, key)
 
             return None
 
@@ -606,7 +621,7 @@ class BasePermissionsMixin:
         elif item == "_protected":
             return False
         elif item == "__name__":
-            return "BaseProtectedMixin"
+            return type(self).__name__
 
         raise AttributeError(f"'{self.__name__}' has no attribute '{item}'")
 
