@@ -1,3 +1,9 @@
+Disclaimer: I now think this is an absolutely awful idea and that you should run away from this as fast as possible because it introduces horribly tightly coupled garbage in your models that makes everything worse over time. I only leave it up as a warning to future generations of what not to do. Keep you sqlalchemy models lean. 
+
+
+
+
+
 =====================
 SQL Alchemy Authorize
 =====================
