@@ -11,6 +11,6 @@ pytest==7.1.1
 black==22.1.0
 setuptools==60.10.0
 SQLAlchemy>=1.4.32
-oso==0.26.0
+oso==0.27.2
 sqlalchemy_oso==0.26.0
 blinker>=1.4.0
