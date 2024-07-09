@@ -9,7 +9,7 @@ Sphinx==4.4.0
 twine==3.8.0
 pytest==7.1.1
 black==22.1.0
-setuptools==60.10.0
+setuptools==70.3.0
 SQLAlchemy>=1.4.32
 oso==0.26.0
 sqlalchemy_oso==0.26.0
